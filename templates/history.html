@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseDash | Snapshot Archive</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --latency: #a855f7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); padding: 2rem 1rem; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        h1 { font-size: 1.5rem; }
+        a.back-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back-link:hover { text-decoration: underline; }
+
+        table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+        th, td { padding: 0.9rem 1.2rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        th { background: #162032; color: var(--text-muted); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        .badge-latency { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; background: rgba(168, 85, 247, 0.2); color: var(--latency); border: 1px solid var(--latency); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Database Snapshot Archive (Last 15 Records)</h1>
+            <a href="/" class="back-link">← Return to Dashboard</a>
+        </header>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Timestamp (UTC)</th>
+                    <th>Location</th>
+                    <th>Temperature</th>
+                    <th>Condition</th>
+                    <th>Top Story Count</th>
+                    <th>Weather Latency</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in records %}
+                <tr>
+                    <td>#{{ row.id }}</td>
+                    <td>{{ row.timestamp }}</td>
+                    <td><strong>{{ row.city }}</strong></td>
+                    <td>{{ row.weather.temperature | default('N/A') }}</td>
+                    <td>{{ row.weather.condition | default('N/A') }}</td>
+                    <td>{{ row.news.stories | length }} stories</td>
+                    <td><span class="badge-latency">{{ row.weather.latency_ms }} ms</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
