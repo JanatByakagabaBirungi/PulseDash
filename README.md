@@ -22,8 +22,7 @@ A concurrent API aggregation dashboard built with Python and Flask. PulseDash qu
 - Python 3.10+ installed
 
 ### Installation
-
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/](https://github.com/)<your-username>/pulsedash.git
-   cd pulsedash
+   git clone [https://github.com/JanatByakagabaBirungi/PulseDash.git](https://github.com/JanatByakagabaBirungi/PulseDash.git)
+   cd PulseDash
