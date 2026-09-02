@@ -14,6 +14,7 @@ CITY_COORDINATES = {
     "Tokyo": (35.6762, 139.6503),
     "Paris": (48.8566, 2.3522),
     "Nairobi": (-1.2921, 36.8219),
+    "Kampala": (0.3163, 32.5822),
 }
 
 WMO_CODE_MAP = {
@@ -37,6 +38,9 @@ WMO_CODE_MAP = {
     82: "Violent Showers ⛈️",
     95: "Thunderstorm ⛈️",
 }
+
+# The blocklist for filtering Hacker News topics
+FORBIDDEN_KEYWORDS = ["gemini", "muse", "spark", "ai", "openai", "chatgpt"]
 
 def decode_weather(code: int) -> str:
     return WMO_CODE_MAP.get(code, "Unknown Condition 🌡️")
@@ -79,26 +83,38 @@ def fetch_weather(city: str = "London") -> Dict[str, Any]:
         }
 
 def fetch_news() -> Dict[str, Any]:
-    """Fetches top 4 stories from Hacker News and calculates cumulative latency."""
+    """Fetches stories from Hacker News, skipping blocked topics."""
     top_stories_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
     start_time = time.perf_counter()
     
     try:
         res = requests.get(top_stories_url, timeout=5)
         res.raise_for_status()
-        top_ids = res.json()[:4]
+        
+        # Grab a larger pool of 20 IDs so we have backups if we need to filter some out
+        top_ids = res.json()[:20]
         
         stories = []
         for sid in top_ids:
+            # Stop searching as soon as we have 4 clean stories
+            if len(stories) >= 4:
+                break
+                
             item_url = f"https://hacker-news.firebaseio.com/v0/item/{sid}.json"
             item_res = requests.get(item_url, timeout=5)
+            
             if item_res.status_code == 200:
                 item_data = item_res.json()
-                stories.append({
-                    "title": item_data.get("title", "Untitled"),
-                    "url": item_data.get("url", "https://news.ycombinator.com"),
-                    "score": item_data.get("score", 0)
-                })
+                title = item_data.get("title", "Untitled")
+                
+                # Check if any forbidden keyword exists in the title (converted to lowercase)
+                title_lower = title.lower()
+                if not any(word in title_lower for word in FORBIDDEN_KEYWORDS):
+                    stories.append({
+                        "title": title,
+                        "url": item_data.get("url", "https://news.ycombinator.com"),
+                        "score": item_data.get("score", 0)
+                    })
                 
         latency_ms = round((time.perf_counter() - start_time) * 1000, 1)
         return {"status": "success", "stories": stories, "latency_ms": latency_ms}
@@ -120,5 +136,5 @@ def aggregate_data(city: str = "London") -> Tuple[Dict[str, Any], Dict[str, Any]
         return f_weather.result(), f_news.result()
 
 if __name__ == "__main__":
-    weather, news = aggregate_data("London")
+    weather, news = aggregate_data("Kampala")
     print(json.dumps({"weather": weather, "news": news}, indent=4))
