@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseDash | Live Aggregator</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --badge-cache: #eab308;
+            --badge-live: #22c55e;
+            --danger: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); padding: 2rem 1rem; }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        h1 { font-size: 1.6rem; letter-spacing: -0.5px; }
+        .btn-refresh { 
+            background-color: var(--accent); 
+            color: #0f172a; 
+            border: none; 
+            padding: 0.6rem 1.2rem; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+        .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-refresh:hover:not(:disabled) { opacity: 0.9; }
+
+        .status-banner { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap; }
+        .badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.7rem; }
+        .badge-cached { background: rgba(234, 179, 24, 0.2); color: var(--badge-cache); border: 1px solid var(--badge-cache); }
+        .badge-live { background: rgba(34, 197, 94, 0.2); color: var(--badge-live); border: 1px solid var(--badge-live); }
+
+        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+        .card { background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+        .card h2 { font-size: 1.2rem; color: var(--accent); margin-bottom: 1rem; }
+        
+        .weather-metric { margin-bottom: 1.2rem; }
+        .weather-metric .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .weather-metric .val { font-size: 1.8rem; font-weight: bold; margin-top: 0.2rem; }
+
+        ul.news-list { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
+        ul.news-list li { border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; }
+        ul.news-list li:last-child { border-bottom: none; padding-bottom: 0; }
+        ul.news-list a { color: var(--text-main); text-decoration: none; font-size: 0.95rem; font-weight: 500; line-height: 1.4; display: block; }
+        ul.news-list a:hover { color: var(--accent); text-decoration: underline; }
+        .news-score { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; }
+        
+        .empty-state { color: var(--danger); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PulseDash</h1>
+            <form action="/refresh" method="POST" onsubmit="handleRefresh(this)">
+                <button type="submit" class="btn-refresh" id="refresh-btn">Force Cache Refresh</button>
+            </form>
+        </header>
+
+        <div class="status-banner">
+            <span>Status:</span>
+            {% if is_cached %}
+                <span class="badge badge-cached">Cached ({{ ttl }}m TTL)</span>
+            {% else %}
+                <span class="badge badge-live">Live Stream</span>
+            {% endif %}
+            <!-- Formats ISO timestamp 2026-09-02T20:37:32... into readable YYYY-MM-DD HH:MM:SS UTC -->
+            <span>• Snapshot Recorded: {{ data.timestamp[:19].replace('T', ' ') }} UTC</span>
+        </div>
+
+        <div class="grid">
+            <!-- Weather Card -->
+            <div class="card">
+                <h2>London Weather</h2>
+                {% if data.weather.status == "success" %}
+                    <div class="weather-metric">
+                        <div class="label">Temperature</div>
+                        <div class="val">{{ data.weather.temperature }}</div>
+                    </div>
+                    <div class="weather-metric">
+                        <div class="label">Wind Speed</div>
+                        <div class="val">{{ data.weather.wind_speed }}</div>
+                    </div>
+                {% else %}
+                    <p class="empty-state">{{ data.weather.message | default("Weather service unreachable") }}</p>
+                {% endif %}
+            </div>
+
+            <!-- News Card -->
+            <div class="card">
+                <h2>Top Tech Headlines</h2>
+                {% if data.news.status == "success" and data.news.stories %}
+                    <ul class="news-list">
+                        {% for story in data.news.stories %}
+                            <li>
+                                <a href="{{ story.url }}" target="_blank" rel="noopener noreferrer">
+                                    {{ story.title }}
+                                </a>
+                                <div class="news-score">▲ {{ story.score }} points on Hacker News</div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="empty-state">{{ data.news.message | default("No stories available at this time.") }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleRefresh(form) {
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            btn.textContent = 'Fetching APIs...';
+        }
+    </script>
+</body>
+</html>
